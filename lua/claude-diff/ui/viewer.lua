@@ -594,6 +594,21 @@ local function rebuild_file_list_for_nav()
   return pending
 end
 
+--- Navigate to the next pending file after approve/reject.
+--- Goes to next file, or previous if at end, or closes if none left.
+function M.navigate_after_action()
+  local files = rebuild_file_list_for_nav()
+  if #files == 0 then
+    M.close()
+    return
+  end
+
+  -- Try to stay at same position or go to previous if we were at the end
+  local target_idx = math.min(M.file_idx, #files)
+  M.file_list = files
+  M.open(files[target_idx])
+end
+
 --- Navigate to the next file in the list
 function M.next_file()
   -- Rebuild list from pending to skip already-approved files

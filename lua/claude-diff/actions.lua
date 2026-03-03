@@ -20,11 +20,11 @@ function M.approve_file(relative_path)
 
 	M._refresh_ui(relative_path)
 
-	-- Defer refresh so the keymap callback finishes before we destroy/recreate buffers
+	-- Defer navigation so the keymap callback finishes before we destroy/recreate buffers
 	local viewer = require("claude-diff.ui.viewer")
 	if viewer.current_file == relative_path then
 		vim.schedule(function()
-			viewer.refresh()
+			viewer.navigate_after_action()
 		end)
 	end
 end
@@ -51,7 +51,7 @@ function M.reject_file(relative_path)
 	local viewer = require("claude-diff.ui.viewer")
 	if viewer.current_file == relative_path then
 		vim.schedule(function()
-			viewer.refresh()
+			viewer.navigate_after_action()
 		end)
 	end
 end

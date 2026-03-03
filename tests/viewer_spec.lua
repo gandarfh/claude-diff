@@ -14,6 +14,7 @@ describe('viewer', function()
     store = require('claude-diff.store')
     viewer = require('claude-diff.ui.viewer')
     actions = require('claude-diff.actions')
+    require('claude-diff.ui.inline_diff')
   end)
 
   after_each(function()
@@ -212,18 +213,18 @@ describe('viewer', function()
   end)
 
   describe('approve file flow', function()
-    it('keeps viewer open after approve (shows preview)', function()
+    it('navigates to next file after approve', function()
       helpers.with_cwd(test_dir, function()
         setup_two_files()
 
         viewer.open('a.lua')
         actions.approve_file('a.lua')
 
-        -- Process the scheduled refresh
+        -- Process the scheduled navigation
         vim.wait(100, function() return false end)
 
         assert.is_true(viewer.is_open())
-        assert.equals('a.lua', viewer.current_file)
+        assert.equals('b.lua', viewer.current_file)
       end)
     end)
 
@@ -268,105 +269,55 @@ describe('viewer', function()
       end)
     end)
 
-    it('can navigate to next file after approve', function()
+    it('auto-navigates to next file without manual next_file', function()
       helpers.with_cwd(test_dir, function()
         setup_two_files()
 
         viewer.open('a.lua')
         actions.approve_file('a.lua')
 
-        -- Process the scheduled refresh
+        -- Process the scheduled navigation
         vim.wait(100, function() return false end)
 
+        -- Should have auto-navigated to b.lua
         assert.is_true(viewer.is_open())
-
-        -- Should be able to navigate to b.lua
-        viewer.next_file()
         assert.equals('b.lua', viewer.current_file)
-        assert.is_true(viewer.is_open())
       end)
     end)
 
-    it('can approve all files sequentially and close', function()
+    it('can approve all files sequentially and auto-closes', function()
       helpers.with_cwd(test_dir, function()
         setup_two_files()
 
-        -- Approve first file
+        -- Approve first file — auto-navigates to b.lua
         viewer.open('a.lua')
         actions.approve_file('a.lua')
         vim.wait(100, function() return false end)
         assert.is_true(viewer.is_open())
-
-        -- Navigate to second file
-        viewer.next_file()
         assert.equals('b.lua', viewer.current_file)
 
-        -- Approve second file
+        -- Approve second (last) file — auto-closes viewer
         actions.approve_file('b.lua')
         vim.wait(100, function() return false end)
-        assert.is_true(viewer.is_open())
-
-        -- Should be able to close
-        viewer.close()
         assert.is_false(viewer.is_open())
       end)
     end)
 
-    it('q keymap works after approving last file', function()
+    it('auto-closes viewer when last file is approved', function()
       helpers.with_cwd(test_dir, function()
         setup_two_files()
 
-        -- Approve first, navigate to second, approve second
+        -- Approve first — navigates to b.lua
         viewer.open('a.lua')
         actions.approve_file('a.lua')
         vim.wait(100, function() return false end)
+        assert.is_true(viewer.is_open())
+        assert.equals('b.lua', viewer.current_file)
 
-        viewer.next_file()
+        -- Approve last — viewer closes automatically
         actions.approve_file('b.lua')
         vim.wait(100, function() return false end)
-
-        assert.is_true(viewer.is_open())
-
-        -- Verify focus is on a viewer buffer
-        local cur_buf = vim.api.nvim_get_current_buf()
-        local is_viewer_buf = (cur_buf == viewer.left_buf or cur_buf == viewer.right_buf)
-        assert.is_true(is_viewer_buf, 'focus should be on viewer buffer, got buf ' .. cur_buf)
-
-        -- Verify q keymap exists
-        local maps = vim.api.nvim_buf_get_keymap(cur_buf, 'n')
-        local has_q = false
-        for _, map in ipairs(maps) do
-          if map.lhs == 'q' then has_q = true end
-        end
-        assert.is_true(has_q, 'q keymap should exist on current buffer')
-
-        -- Simulate pressing q via feedkeys
-        vim.api.nvim_feedkeys('q', 'x', false)
-        vim.wait(100, function() return false end)
-
-        assert.is_false(viewer.is_open(), 'viewer should be closed after pressing q')
-      end)
-    end)
-
-    it('Esc keymap works after approving last file', function()
-      helpers.with_cwd(test_dir, function()
-        setup_two_files()
-
-        viewer.open('a.lua')
-        actions.approve_file('a.lua')
-        vim.wait(100, function() return false end)
-
-        viewer.next_file()
-        actions.approve_file('b.lua')
-        vim.wait(100, function() return false end)
-
-        assert.is_true(viewer.is_open())
-
-        -- Simulate pressing Escape
-        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'x', false)
-        vim.wait(100, function() return false end)
-
-        assert.is_false(viewer.is_open(), 'viewer should be closed after pressing Esc')
+        assert.is_false(viewer.is_open(), 'viewer should auto-close when no files left')
       end)
     end)
 
@@ -557,28 +508,23 @@ describe('viewer', function()
       end)
     end)
 
-    it('approve single file then close via q', function()
+    it('approve single file auto-closes viewer (via action)', function()
       helpers.with_cwd(test_dir, function()
         setup_one_file()
 
         viewer.open('a.lua')
         assert.is_nil(viewer.tab_win)
 
-        -- Approve via A keymap
-        vim.api.nvim_feedkeys('A', 'x', false)
+        -- Approve via action directly
+        actions.approve_file('a.lua')
         vim.wait(200, function() return false end)
 
-        assert.is_true(viewer.is_open(), 'viewer should stay open showing preview')
-
-        -- Close via q
-        vim.api.nvim_feedkeys('q', 'x', false)
-        vim.wait(100, function() return false end)
-
-        assert.is_false(viewer.is_open(), 'viewer should close after pressing q')
+        -- With only one file, viewer should auto-close
+        assert.is_false(viewer.is_open(), 'viewer should auto-close when last file approved')
       end)
     end)
 
-    it('approve single file then close via Esc', function()
+    it('approve single file auto-closes viewer', function()
       helpers.with_cwd(test_dir, function()
         setup_one_file()
 
@@ -587,9 +533,7 @@ describe('viewer', function()
         actions.approve_file('a.lua')
         vim.wait(200, function() return false end)
 
-        assert.is_true(viewer.is_open())
-
-        viewer.close()
+        -- With only one file, approving it should auto-close the viewer
         assert.is_false(viewer.is_open())
       end)
     end)
