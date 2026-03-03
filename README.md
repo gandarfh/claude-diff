@@ -79,10 +79,10 @@ This registers `PreToolUse` and `PostToolUse` hooks in `~/.claude/settings.json`
 
 | Key | Action |
 |---|---|
-| `a` | Approve current file |
-| `x` | Reject current file |
-| `<leader>ha` | Approve current hunk |
-| `<leader>hx` | Reject current hunk |
+| `a` | Approve current hunk |
+| `x` | Reject current hunk |
+| `A` | Approve current file |
+| `X` | Reject current file |
 | `<C-n>` | Next hunk |
 | `<C-p>` | Previous hunk |
 | `<Tab>` | Next file |
