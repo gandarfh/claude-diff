@@ -2,7 +2,16 @@
 
 A Neovim plugin that intercepts Claude Code file edits via hooks and lets you review, approve, or reject each change — file by file, hunk by hunk — with a side-by-side diff viewer.
 
-![Overview](./assets/overview.png)
+<table>
+<tr>
+<td><b>Panel</b> — file list with pending changes</td>
+<td><b>Viewer</b> — side-by-side diff</td>
+</tr>
+<tr>
+<td><img src="./assets/panel.png" alt="Panel" width="400"></td>
+<td><img src="./assets/viewer.png" alt="Viewer" width="400"></td>
+</tr>
+</table>
 
 ## How it works
 
@@ -61,8 +70,6 @@ This registers `PreToolUse` and `PostToolUse` hooks in `~/.claude/settings.json`
 
 ### Panel keymaps
 
-![Panel](./assets/panel.png)
-
 | Key | Action |
 |---|---|
 | `<CR>` | Open diff viewer for selected file |
@@ -74,8 +81,6 @@ This registers `PreToolUse` and `PostToolUse` hooks in `~/.claude/settings.json`
 | `q` / `<Esc>` | Close panel |
 
 ### Viewer keymaps
-
-![Viewer](./assets/viewer.png)
 
 | Key | Action |
 |---|---|
