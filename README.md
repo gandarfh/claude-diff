@@ -85,8 +85,8 @@ This registers `PreToolUse` and `PostToolUse` hooks in `~/.claude/settings.json`
 | `<leader>hx` | Reject current hunk |
 | `<C-n>` | Next hunk |
 | `<C-p>` | Previous hunk |
-| `]f` | Next file |
-| `[f` | Previous file |
+| `<Tab>` | Next file |
+| `<S-Tab>` | Previous file |
 | `q` / `<Esc>` | Close viewer |
 
 ## Configuration
