@@ -2,16 +2,18 @@
 
 A Neovim plugin that intercepts Claude Code file edits via hooks and lets you review, approve, or reject each change — file by file, hunk by hunk — with a side-by-side diff viewer.
 
-<table>
-<tr>
-<td><b>Panel</b> — file list with pending changes</td>
-<td><b>Viewer</b> — side-by-side diff</td>
-</tr>
-<tr>
-<td><img src="./assets/panel.png" alt="Panel" width="400"></td>
-<td><img src="./assets/viewer.png" alt="Viewer" width="400"></td>
-</tr>
-</table>
+<a href="./assets/viewer.png">
+  <img src="./assets/viewer.png" alt="claude-diff.nvim — side-by-side diff viewer">
+</a>
+
+<details>
+<summary>Panel — file list with pending changes</summary>
+
+<a href="./assets/panel.png">
+  <img src="./assets/panel.png" alt="claude-diff.nvim — panel">
+</a>
+
+</details>
 
 ## How it works
 
