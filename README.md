@@ -2,7 +2,7 @@
 
 A Neovim plugin that intercepts Claude Code file edits via hooks and lets you review, approve, or reject each change — file by file, hunk by hunk — with a side-by-side diff viewer.
 
-![Viewer](./assets/viewer.png)
+![Overview](./assets/overview.png)
 
 ## How it works
 
