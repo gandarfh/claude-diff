@@ -26,6 +26,14 @@ local function apply()
   hl(0, 'ClaudeDiffChange', { bg = 'NONE' })
   hl(0, 'ClaudeDiffText', { bg = 'NONE' })
 
+  -- DiffChange per-side: dim background for the whole changed line
+  hl(0, 'ClaudeDiffChangeDel', { bg = '#2a1a1e' })  -- dim red for left (original)
+  hl(0, 'ClaudeDiffChangeAdd', { bg = '#1a2a20' })  -- dim green for right (modified)
+
+  -- Character-level inline diff (bright bg for the actual changed characters)
+  hl(0, 'ClaudeDiffDeleteText', { bg = '#6e3040' })  -- bright red
+  hl(0, 'ClaudeDiffAddText', { bg = '#2a6e3e' })     -- bright green
+
   -- Hunk signs in sign column
   hl(0, 'ClaudeDiffHunkActive', { fg = '#61afef' })
   hl(0, 'ClaudeDiffHunkInactive', { fg = '#3e4452' })

@@ -1,7 +1,7 @@
 TESTS_DIR := tests
 MINIMAL_INIT := tests/minimal_init.lua
 
-.PHONY: test test-diff test-store test-viewer test-panel test-actions test-init
+.PHONY: test test-diff test-store test-viewer test-panel test-actions test-init test-inline-diff
 
 # Run all tests
 test:
@@ -37,3 +37,8 @@ test-actions:
 test-init:
 	nvim --headless -u $(MINIMAL_INIT) \
 		-c "PlenaryBustedFile $(TESTS_DIR)/init_spec.lua"
+
+# Run only inline diff tests
+test-inline-diff:
+	nvim --headless -u $(MINIMAL_INIT) \
+		-c "PlenaryBustedFile $(TESTS_DIR)/inline_diff_spec.lua"

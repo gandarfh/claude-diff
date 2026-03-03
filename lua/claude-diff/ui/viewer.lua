@@ -20,13 +20,23 @@ M.file_idx = 0
 local ns = vim.api.nvim_create_namespace('claude_diff_viewer')
 local augroup = vim.api.nvim_create_augroup('claude_diff_viewer', { clear = true })
 
---- Winhighlight: subtle diff backgrounds
-local WH = table.concat({
+--- Winhighlight for left pane (original — deletions use red tones)
+local WH_LEFT = table.concat({
   'Normal:ClaudeDiffNormal',
   'FloatBorder:ClaudeDiffBorder',
   'DiffAdd:ClaudeDiffAdd',
   'DiffDelete:ClaudeDiffDelete',
-  'DiffChange:ClaudeDiffChange',
+  'DiffChange:ClaudeDiffChangeDel',
+  'DiffText:ClaudeDiffText',
+}, ',')
+
+--- Winhighlight for right pane (modified — additions use green tones)
+local WH_RIGHT = table.concat({
+  'Normal:ClaudeDiffNormal',
+  'FloatBorder:ClaudeDiffBorder',
+  'DiffAdd:ClaudeDiffAdd',
+  'DiffDelete:ClaudeDiffDelete',
+  'DiffChange:ClaudeDiffChangeAdd',
   'DiffText:ClaudeDiffText',
 }, ',')
 
@@ -326,7 +336,7 @@ local function _open_impl(relative_path)
   vim.wo[M.left_win].signcolumn = 'yes:1'
   vim.wo[M.left_win].foldcolumn = '0'
   vim.wo[M.left_win].wrap = false
-  vim.wo[M.left_win].winhighlight = WH
+  vim.wo[M.left_win].winhighlight = WH_LEFT
 
   -- Right floating window (modified) — noautocmd prevents user autocmds from interfering
   M.right_win = vim.api.nvim_open_win(M.right_buf, true, {
@@ -350,7 +360,7 @@ local function _open_impl(relative_path)
   vim.wo[M.right_win].signcolumn = 'yes:1'
   vim.wo[M.right_win].foldcolumn = '0'
   vim.wo[M.right_win].wrap = false
-  vim.wo[M.right_win].winhighlight = WH
+  vim.wo[M.right_win].winhighlight = WH_RIGHT
 
   -- Create tab bar above the panes (after panes so we know positions)
   if #M.file_list > 1 then
@@ -370,6 +380,9 @@ local function _open_impl(relative_path)
   vim.api.nvim_win_call(M.right_win, function()
     vim.cmd('noautocmd diffthis')
   end)
+
+  -- Apply character-level inline diff highlights
+  require('claude-diff.ui.inline_diff').apply(M.left_buf, M.right_buf, M.left_win, M.right_win, old_lines, new_lines)
 
   -- Setup keymaps on both buffers
   M.setup_keymaps(M.left_buf)
@@ -438,6 +451,9 @@ end
 function M.close()
   -- Clear autocmds first to prevent WinClosed from re-triggering close
   vim.api.nvim_clear_autocmds({ group = augroup })
+
+  -- Clear inline diff highlights before closing
+  require('claude-diff.ui.inline_diff').clear(M.left_buf, M.right_buf)
 
   -- Diffoff on each diff window (explicit calls, no ipairs with nil holes)
   safe_diffoff(M.left_win)
