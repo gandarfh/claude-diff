@@ -1,7 +1,7 @@
 TESTS_DIR := tests
 MINIMAL_INIT := tests/minimal_init.lua
 
-.PHONY: test test-diff test-store test-viewer test-panel test-actions test-init test-inline-diff
+.PHONY: test test-diff test-store test-viewer test-panel test-actions test-init test-inline-diff test-scalability
 
 # Run all tests
 test:
@@ -42,3 +42,8 @@ test-init:
 test-inline-diff:
 	nvim --headless -u $(MINIMAL_INIT) \
 		-c "PlenaryBustedFile $(TESTS_DIR)/inline_diff_spec.lua"
+
+# Run only scalability tests
+test-scalability:
+	nvim --headless -u $(MINIMAL_INIT) \
+		-c "PlenaryBustedFile $(TESTS_DIR)/scalability_spec.lua"

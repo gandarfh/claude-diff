@@ -2,6 +2,9 @@ local config = require('claude-diff.config')
 
 local M = {}
 
+-- In-memory cache for pending.json
+local _pending_cache = nil
+
 --- Get the absolute path to the storage directory
 ---@return string
 function M.storage_dir()
@@ -35,35 +38,50 @@ function M.decode_path(encoded)
   return encoded:gsub('__', '/')
 end
 
---- Read and parse pending.json
+--- Read and parse pending.json (cached)
 ---@return table[] List of pending entries
 function M.get_pending()
+  if _pending_cache then
+    return _pending_cache
+  end
+
   local path = M.pending_file()
   if vim.fn.filereadable(path) ~= 1 then
-    return {}
+    _pending_cache = {}
+    return _pending_cache
   end
 
   local content = vim.fn.readfile(path)
   if #content == 0 then
-    return {}
+    _pending_cache = {}
+    return _pending_cache
   end
 
   local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
   if not ok or type(data) ~= 'table' then
-    return {}
+    _pending_cache = {}
+    return _pending_cache
   end
 
-  return data
+  _pending_cache = data
+  return _pending_cache
 end
 
 --- Write pending list to pending.json
 ---@param entries table[]
 function M.set_pending(entries)
+  _pending_cache = entries
+
   local dir = M.storage_dir()
   vim.fn.mkdir(dir, 'p')
 
   local json = vim.json.encode(entries)
   vim.fn.writefile({ json }, M.pending_file())
+end
+
+--- Invalidate the pending cache (forces re-read from disk on next get_pending)
+function M.invalidate_cache()
+  _pending_cache = nil
 end
 
 --- Remove a file entry from pending list

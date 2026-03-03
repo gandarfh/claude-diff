@@ -34,7 +34,9 @@ end
 
 --- Refresh the file list
 function M.refresh()
+  local store = require('claude-diff.store')
   local panel = require('claude-diff.ui.panel')
+  store.invalidate_cache()
   if panel.is_open() then
     panel.render()
   end

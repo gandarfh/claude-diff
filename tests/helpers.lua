@@ -60,6 +60,9 @@ function M.setup_project(opts)
     vim.fn.writefile({ vim.json.encode(opts.pending) }, pending_path)
   end
 
+  -- Invalidate store cache since we wrote pending.json directly
+  require('claude-diff.store').invalidate_cache()
+
   -- Write .gitignore
   M.write_file(dir .. '/.claude-diff/.gitignore', '*\n')
 end

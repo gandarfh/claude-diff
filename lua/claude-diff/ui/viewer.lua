@@ -156,26 +156,44 @@ local function find_file_idx(file_list, file)
   return 0
 end
 
---- Build tab bar content with highlights
+--- Build tab bar content with highlights (sliding window for many files)
 ---@param width number total width of the tab bar
 ---@return string line, table[] highlights
 local function build_tab_content(width)
   local parts = {}
   local hls = {}
   local col = 0
+  local total = #M.file_list
+  local active = M.file_idx
 
-  for i, file in ipairs(M.file_list) do
+  -- Sliding window: show up to MAX_VISIBLE tabs centered on active
+  local MAX_VISIBLE = 7
+  local half = math.floor(MAX_VISIBLE / 2)
+  local vis_start = math.max(1, active - half)
+  local vis_end = math.min(total, vis_start + MAX_VISIBLE - 1)
+  vis_start = math.max(1, vis_end - MAX_VISIBLE + 1)
+
+  -- Left overflow indicator
+  if vis_start > 1 then
+    local indicator = ' \u{25C0} '
+    table.insert(parts, indicator)
+    table.insert(hls, { col_start = col, col_end = col + #indicator, hl = 'ClaudeDiffBorder' })
+    col = col + #indicator
+  else
+    table.insert(parts, '  ')
+    col = col + 2
+  end
+
+  for i = vis_start, vis_end do
+    local file = M.file_list[i]
     local name = vim.fn.fnamemodify(file, ':t')
-    local is_active = (i == M.file_idx)
+    local is_active = (i == active)
 
-    if i > 1 then
-      local sep = ' │ '
+    if i > vis_start then
+      local sep = ' \u{2502} '
       table.insert(parts, sep)
       table.insert(hls, { col_start = col, col_end = col + #sep, hl = 'ClaudeDiffBorder' })
       col = col + #sep
-    else
-      table.insert(parts, '  ')
-      col = col + 2
     end
 
     local label = ' ' .. name .. ' '
@@ -184,6 +202,20 @@ local function build_tab_content(width)
     table.insert(hls, { col_start = col, col_end = col + #label, hl = hl_group })
     col = col + #label
   end
+
+  -- Right overflow indicator
+  if vis_end < total then
+    local indicator = ' \u{25B6} '
+    table.insert(parts, indicator)
+    table.insert(hls, { col_start = col, col_end = col + #indicator, hl = 'ClaudeDiffBorder' })
+    col = col + #indicator
+  end
+
+  -- Position indicator
+  local pos = '  ' .. active .. '/' .. total
+  table.insert(parts, pos)
+  table.insert(hls, { col_start = col, col_end = col + #pos, hl = 'ClaudeDiffHelp' })
+  col = col + #pos
 
   local line = table.concat(parts)
 
@@ -382,7 +414,7 @@ local function _open_impl(relative_path)
   end)
 
   -- Apply character-level inline diff highlights
-  require('claude-diff.ui.inline_diff').apply(M.left_buf, M.right_buf, M.left_win, M.right_win, old_lines, new_lines)
+  require('claude-diff.ui.inline_diff').apply(M.left_buf, M.right_buf, M.left_win, M.right_win, old_lines, new_lines, M.hunks)
 
   -- Setup keymaps on both buffers
   M.setup_keymaps(M.left_buf)

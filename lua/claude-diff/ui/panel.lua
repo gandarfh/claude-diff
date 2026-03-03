@@ -10,6 +10,9 @@ M.win = nil
 M.entries = {}
 M.ns = vim.api.nvim_create_namespace('claude_diff_panel')
 
+-- Hunk count cache: path -> count
+local _hunk_cache = {}
+
 -- Line where file entries start (0-indexed)
 M.ENTRIES_START = 0
 
@@ -47,10 +50,14 @@ local function build_content(entries)
       icon_hl = 'ClaudeDiffModified'
     end
 
-    -- Count hunks
-    local diff_text = diff.compute(entry.file)
-    local hunks = diff_text and diff.parse_hunks(diff_text) or {}
-    local hunk_count = #hunks
+    -- Count hunks (cached)
+    local hunk_count = _hunk_cache[entry.file]
+    if hunk_count == nil then
+      local diff_text = diff.compute(entry.file)
+      local hunks = diff_text and diff.parse_hunks(diff_text) or {}
+      hunk_count = #hunks
+      _hunk_cache[entry.file] = hunk_count
+    end
 
     -- Build the line: "  icon  filename           +3 hunks"
     local filename = vim.fn.fnamemodify(entry.file, ':t')
@@ -270,6 +277,16 @@ function M.setup_keymaps()
   vim.keymap.set('n', '<Esc>', function()
     require('claude-diff').close()
   end, bopts)
+end
+
+--- Invalidate the hunk count cache
+---@param relative_path? string If given, invalidate only that file; otherwise clear all
+function M.invalidate_hunk_cache(relative_path)
+  if relative_path then
+    _hunk_cache[relative_path] = nil
+  else
+    _hunk_cache = {}
+  end
 end
 
 return M

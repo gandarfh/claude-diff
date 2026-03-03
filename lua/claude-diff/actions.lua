@@ -18,7 +18,7 @@ function M.approve_file(relative_path)
 
 	vim.notify("Approved: " .. relative_path, vim.log.levels.INFO, { title = "claude-diff" })
 
-	M._refresh_ui()
+	M._refresh_ui(relative_path)
 
 	-- Defer refresh so the keymap callback finishes before we destroy/recreate buffers
 	local viewer = require("claude-diff.ui.viewer")
@@ -46,7 +46,7 @@ function M.reject_file(relative_path)
 
 	vim.notify("Rejected: " .. relative_path, vim.log.levels.INFO, { title = "claude-diff" })
 
-	M._refresh_ui()
+	M._refresh_ui(relative_path)
 
 	local viewer = require("claude-diff.ui.viewer")
 	if viewer.current_file == relative_path then
@@ -128,7 +128,7 @@ function M.approve_hunk(relative_path, hunk_index)
 			store.remove_pending(relative_path)
 		end
 
-		M._refresh_ui()
+		M._refresh_ui(relative_path)
 
 		-- Defer refresh so the keymap callback finishes before we destroy/recreate buffers
 		local viewer = require("claude-diff.ui.viewer")
@@ -165,7 +165,7 @@ function M.reject_hunk(relative_path, hunk_index)
 			store.remove_pending(relative_path)
 		end
 
-		M._refresh_ui()
+		M._refresh_ui(relative_path)
 
 		local viewer = require("claude-diff.ui.viewer")
 		if viewer.current_file == relative_path then
@@ -200,10 +200,14 @@ function M._reload_buffer(relative_path)
 end
 
 --- Refresh all UI components
-function M._refresh_ui()
+---@param relative_path? string If given, invalidate hunk cache for that file; otherwise clear all
+function M._refresh_ui(relative_path)
 	local ok, panel = pcall(require, "claude-diff.ui.panel")
-	if ok and panel.is_open() then
-		panel.render()
+	if ok then
+		panel.invalidate_hunk_cache(relative_path)
+		if panel.is_open() then
+			panel.render()
+		end
 	end
 end
 

@@ -66,19 +66,36 @@ function M.char_diff(old_str, new_str)
   return old_ranges, new_ranges
 end
 
---- Get line numbers that have DiffChange highlight in a window.
+--- Get line numbers that have DiffChange highlight in a window, scanning only within given ranges.
 ---@param win number
 ---@param line_count number
+---@param ranges? table[] list of {start_line, end_line} 1-indexed ranges to scan (nil = scan all)
 ---@return number[]
-local function get_diff_change_lines(win, line_count)
+local function get_diff_change_lines(win, line_count, ranges)
   local changed = {}
   vim.api.nvim_win_call(win, function()
-    for lnum = 1, line_count do
-      local hl_id = vim.fn.diff_hlID(lnum, 1)
-      if hl_id > 0 then
-        local name = vim.fn.synIDattr(hl_id, 'name')
-        if name == 'DiffChange' then
-          table.insert(changed, lnum)
+    if ranges and #ranges > 0 then
+      for _, range in ipairs(ranges) do
+        local start_line = math.max(1, range[1])
+        local end_line = math.min(line_count, range[2])
+        for lnum = start_line, end_line do
+          local hl_id = vim.fn.diff_hlID(lnum, 1)
+          if hl_id > 0 then
+            local name = vim.fn.synIDattr(hl_id, 'name')
+            if name == 'DiffChange' then
+              table.insert(changed, lnum)
+            end
+          end
+        end
+      end
+    else
+      for lnum = 1, line_count do
+        local hl_id = vim.fn.diff_hlID(lnum, 1)
+        if hl_id > 0 then
+          local name = vim.fn.synIDattr(hl_id, 'name')
+          if name == 'DiffChange' then
+            table.insert(changed, lnum)
+          end
         end
       end
     end
@@ -95,11 +112,23 @@ end
 ---@param right_win number
 ---@param old_lines string[]
 ---@param new_lines string[]
-function M.apply(left_buf, right_buf, left_win, right_win, old_lines, new_lines)
+---@param hunks? table[] Parsed hunks to limit scanning (optional, scans all lines if nil)
+function M.apply(left_buf, right_buf, left_win, right_win, old_lines, new_lines, hunks)
   M.clear(left_buf, right_buf)
 
-  local left_changed = get_diff_change_lines(left_win, #old_lines)
-  local right_changed = get_diff_change_lines(right_win, #new_lines)
+  -- Build scan ranges from hunks if available
+  local old_ranges, new_ranges
+  if hunks and #hunks > 0 then
+    old_ranges = {}
+    new_ranges = {}
+    for _, hunk in ipairs(hunks) do
+      table.insert(old_ranges, { hunk.old_start, hunk.old_start + hunk.old_count - 1 })
+      table.insert(new_ranges, { hunk.new_start, hunk.new_start + hunk.new_count - 1 })
+    end
+  end
+
+  local left_changed = get_diff_change_lines(left_win, #old_lines, old_ranges)
+  local right_changed = get_diff_change_lines(right_win, #new_lines, new_ranges)
 
   local count = math.min(#left_changed, #right_changed)
   for i = 1, count do
