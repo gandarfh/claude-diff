@@ -6,13 +6,6 @@ A Neovim plugin that intercepts Claude Code file edits via hooks and lets you re
   <img src="./assets/viewer-banner.png" alt="claude-diff.nvim — side-by-side diff viewer">
 </a>
 
-<details>
-<summary>Panel — file list</summary>
-<a href="./assets/panel.png">
-  <img src="./assets/panel-banner.png" alt="claude-diff.nvim — panel">
-</a>
-</details>
-
 ## How it works
 
 1. **Claude Code hooks** snapshot every file *before* Claude edits it
@@ -70,6 +63,10 @@ This registers `PreToolUse` and `PostToolUse` hooks in `~/.claude/settings.json`
 
 ### Panel keymaps
 
+<a href="./assets/panel.png">
+  <img src="./assets/panel-banner.png" alt="claude-diff.nvim — panel">
+</a>
+
 | Key | Action |
 |---|---|
 | `<CR>` | Open diff viewer for selected file |
@@ -81,6 +78,10 @@ This registers `PreToolUse` and `PostToolUse` hooks in `~/.claude/settings.json`
 | `q` / `<Esc>` | Close panel |
 
 ### Viewer keymaps
+
+<a href="./assets/viewer.png">
+  <img src="./assets/viewer-banner.png" alt="claude-diff.nvim — viewer">
+</a>
 
 | Key | Action |
 |---|---|
