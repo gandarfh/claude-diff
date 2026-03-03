@@ -118,8 +118,8 @@ require('claude-diff').setup({
     open_diff = '<CR>',
     next_hunk = '<C-n>',
     prev_hunk = '<C-p>',
-    approve_hunk = '<leader>ha',
-    reject_hunk = '<leader>hx',
+    approve_hunk = 'a',
+    reject_hunk = 'x',
   },
 })
 ```
@@ -127,13 +127,14 @@ require('claude-diff').setup({
 ## Running tests
 
 ```bash
-make test          # all tests (107)
-make test-diff     # diff module
-make test-store    # store module
-make test-viewer   # viewer module
-make test-panel    # panel module
-make test-actions  # actions module
-make test-init     # init module
+make test              # all tests
+make test-diff         # diff module
+make test-store        # store module
+make test-viewer       # viewer module
+make test-panel        # panel module
+make test-actions      # actions module
+make test-init         # init module
+make test-inline-diff  # inline diff module
 ```
 
 Requires [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) in `~/.local/share/nvim/lazy/plenary.nvim`.

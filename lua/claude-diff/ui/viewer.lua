@@ -624,26 +624,26 @@ function M.setup_keymaps(buf)
   vim.keymap.set('n', km.next_hunk, function() M.next_hunk() end, bopts)
   vim.keymap.set('n', km.prev_hunk, function() M.prev_hunk() end, bopts)
 
-  -- In viewer: a/x = hunk, A/X = whole file
-  vim.keymap.set('n', 'a', function()
+  -- In viewer: approve_hunk/reject_hunk = hunk, approve_file/reject_file = whole file
+  vim.keymap.set('n', km.approve_hunk, function()
     if M.current_hunk_idx > 0 and M.current_file then
       require('claude-diff.actions').approve_hunk(M.current_file, M.current_hunk_idx)
     end
   end, bopts)
 
-  vim.keymap.set('n', 'x', function()
+  vim.keymap.set('n', km.reject_hunk, function()
     if M.current_hunk_idx > 0 and M.current_file then
       require('claude-diff.actions').reject_hunk(M.current_file, M.current_hunk_idx)
     end
   end, bopts)
 
-  vim.keymap.set('n', 'A', function()
+  vim.keymap.set('n', km.approve_file, function()
     if M.current_file then
       require('claude-diff.actions').approve_file(M.current_file)
     end
   end, bopts)
 
-  vim.keymap.set('n', 'X', function()
+  vim.keymap.set('n', km.reject_file, function()
     if M.current_file then
       require('claude-diff.actions').reject_file(M.current_file)
     end

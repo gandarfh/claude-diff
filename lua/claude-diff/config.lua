@@ -20,8 +20,8 @@ M.defaults = {
     open_diff = '<CR>',
     next_hunk = '<C-n>',
     prev_hunk = '<C-p>',
-    approve_hunk = '<leader>ha',
-    reject_hunk = '<leader>hx',
+    approve_hunk = 'a',
+    reject_hunk = 'x',
   },
 }
 
