@@ -239,14 +239,9 @@ function M.approve_hunk_in_file(relative_path, hunk_index)
   end
 
   if is_new then
-    -- For new files, approving all hunks = approve file
-    -- Approving individual hunks of a new file doesn't make much sense,
-    -- but we handle it: we create a snapshot with the approved content.
-    local current_content = store.get_current(relative_path)
-    if current_content then
-      store.update_snapshot(relative_path, current_content)
-    end
-    return true
+    -- Individual hunk approval doesn't make sense for new files.
+    -- The user should approve the entire file instead.
+    return false
   end
 
   local snapshot_content = store.get_snapshot(relative_path)

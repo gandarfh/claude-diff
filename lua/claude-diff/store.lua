@@ -24,18 +24,53 @@ function M.pending_file()
   return M.storage_dir() .. '/pending.json'
 end
 
+--- Validate that a path is relative and safe (no traversal)
+---@param relative_path string
+local function validate_relative_path(relative_path)
+  assert(type(relative_path) == 'string' and #relative_path > 0, 'claude-diff: path must be a non-empty string')
+  assert(not relative_path:match('^/'), 'claude-diff: path must be relative, got: ' .. relative_path)
+  assert(not relative_path:match('%.%.'), 'claude-diff: path must not contain ..: ' .. relative_path)
+end
+
+--- Build absolute path from a relative path
+---@param relative_path string
+---@return string
+function M.abs_path(relative_path)
+  return vim.fn.getcwd() .. '/' .. relative_path
+end
+
 --- Encode a relative file path for use as snapshot filename
+--- Uses URL-style encoding: '/' -> '%2F', '%' -> '%25'
 ---@param relative_path string
 ---@return string
 function M.encode_path(relative_path)
-  return relative_path:gsub('/', '__')
+  return (relative_path:gsub('%%', '%%25'):gsub('/', '%%2F'))
 end
 
 --- Decode a snapshot filename back to relative path
 ---@param encoded string
 ---@return string
 function M.decode_path(encoded)
-  return encoded:gsub('__', '/')
+  return (encoded:gsub('%%2F', '/'):gsub('%%25', '%%'))
+end
+
+--- Migrate snapshots from old encoding ('/' -> '__') to new encoding ('/' -> '%2F')
+local _migrated = false
+local function migrate_snapshots_if_needed()
+  if _migrated then return end
+  _migrated = true
+  local snap_dir = M.snapshots_dir()
+  if vim.fn.isdirectory(snap_dir) ~= 1 then return end
+  local files = vim.fn.readdir(snap_dir)
+  for _, fname in ipairs(files) do
+    if fname:find('__') and not fname:find('%%2F') then
+      local old_decoded = fname:gsub('__', '/')
+      local new_encoded = M.encode_path(old_decoded)
+      if new_encoded ~= fname then
+        pcall(vim.fn.rename, snap_dir .. '/' .. fname, snap_dir .. '/' .. new_encoded)
+      end
+    end
+  end
 end
 
 --- Read and parse pending.json (cached)
@@ -101,6 +136,7 @@ end
 ---@param relative_path string
 ---@return string|nil content, boolean is_new
 function M.get_snapshot(relative_path)
+  migrate_snapshots_if_needed()
   local encoded = M.encode_path(relative_path)
   local snapshot_path = M.snapshots_dir() .. '/' .. encoded
 
@@ -108,7 +144,11 @@ function M.get_snapshot(relative_path)
     return nil, false
   end
 
-  local lines = vim.fn.readfile(snapshot_path)
+  local ok, lines = pcall(vim.fn.readfile, snapshot_path)
+  if not ok then
+    vim.notify('claude-diff: failed to read snapshot: ' .. snapshot_path, vim.log.levels.WARN)
+    return nil, false
+  end
   local content = table.concat(lines, '\n')
 
   if content == '__CLAUDE_DIFF_NEW_FILE__' then
@@ -127,14 +167,17 @@ end
 ---@param relative_path string
 ---@return string|nil
 function M.get_current(relative_path)
-  local cwd = vim.fn.getcwd()
-  local abs_path = cwd .. '/' .. relative_path
+  local abs_path = M.abs_path(relative_path)
 
   if vim.fn.filereadable(abs_path) ~= 1 then
     return nil
   end
 
-  local lines = vim.fn.readfile(abs_path)
+  local ok, lines = pcall(vim.fn.readfile, abs_path)
+  if not ok then
+    vim.notify('claude-diff: failed to read file: ' .. abs_path, vim.log.levels.WARN)
+    return nil
+  end
   local content = table.concat(lines, '\n')
   if #lines > 0 then
     content = content .. '\n'
@@ -142,20 +185,12 @@ function M.get_current(relative_path)
   return content
 end
 
---- Remove snapshot file for a given path
----@param relative_path string
-function M.remove_snapshot(relative_path)
-  local encoded = M.encode_path(relative_path)
-  local snapshot_path = M.snapshots_dir() .. '/' .. encoded
-  vim.fn.delete(snapshot_path)
-end
-
 --- Write content to a project file (for reverting)
 ---@param relative_path string
 ---@param content string
 function M.write_file(relative_path, content)
-  local cwd = vim.fn.getcwd()
-  local abs_path = cwd .. '/' .. relative_path
+  validate_relative_path(relative_path)
+  local abs_path = M.abs_path(relative_path)
 
   -- Ensure parent dir exists
   local parent = vim.fn.fnamemodify(abs_path, ':h')
@@ -166,21 +201,39 @@ function M.write_file(relative_path, content)
   if #lines > 0 and lines[#lines] == '' then
     table.remove(lines)
   end
-  vim.fn.writefile(lines, abs_path)
+  local ok, err = pcall(vim.fn.writefile, lines, abs_path)
+  if not ok then
+    vim.notify('claude-diff: failed to write ' .. abs_path .. ': ' .. tostring(err), vim.log.levels.ERROR)
+  end
 end
 
 --- Delete a project file (for rejecting new files)
 ---@param relative_path string
 function M.delete_file(relative_path)
-  local cwd = vim.fn.getcwd()
-  local abs_path = cwd .. '/' .. relative_path
-  vim.fn.delete(abs_path)
+  validate_relative_path(relative_path)
+  local abs_path = M.abs_path(relative_path)
+  local ok, err = pcall(vim.fn.delete, abs_path)
+  if not ok then
+    vim.notify('claude-diff: failed to delete ' .. abs_path .. ': ' .. tostring(err), vim.log.levels.ERROR)
+  end
+end
+
+--- Remove snapshot file for a given path
+---@param relative_path string
+function M.remove_snapshot(relative_path)
+  local encoded = M.encode_path(relative_path)
+  local snapshot_path = M.snapshots_dir() .. '/' .. encoded
+  local ok, err = pcall(vim.fn.delete, snapshot_path)
+  if not ok then
+    vim.notify('claude-diff: failed to remove snapshot: ' .. snapshot_path .. ': ' .. tostring(err), vim.log.levels.WARN)
+  end
 end
 
 --- Update snapshot content (for hunk-level approve)
 ---@param relative_path string
 ---@param content string
 function M.update_snapshot(relative_path, content)
+  validate_relative_path(relative_path)
   local encoded = M.encode_path(relative_path)
   local snapshot_path = M.snapshots_dir() .. '/' .. encoded
 
@@ -188,7 +241,10 @@ function M.update_snapshot(relative_path, content)
   if #lines > 0 and lines[#lines] == '' then
     table.remove(lines)
   end
-  vim.fn.writefile(lines, snapshot_path)
+  local ok, err = pcall(vim.fn.writefile, lines, snapshot_path)
+  if not ok then
+    vim.notify('claude-diff: failed to write snapshot: ' .. snapshot_path .. ': ' .. tostring(err), vim.log.levels.ERROR)
+  end
 end
 
 return M

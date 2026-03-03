@@ -223,6 +223,8 @@ function M.close()
   end
   M.win = nil
   M.buf = nil
+  M.entries = {}
+  _hunk_cache = {}
 end
 
 --- Setup keymaps for the panel buffer
@@ -238,8 +240,9 @@ function M.setup_keymaps()
   vim.keymap.set('n', km.open_diff, function()
     local idx = M.get_entry_at_cursor()
     if idx and M.entries[idx] then
+      local file = M.entries[idx].file
       M.close()
-      actions.open_diff(M.entries[idx].file)
+      actions.open_diff(file)
     end
   end, bopts)
 

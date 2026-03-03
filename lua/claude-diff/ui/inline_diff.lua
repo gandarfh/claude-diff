@@ -66,6 +66,22 @@ function M.char_diff(old_str, new_str)
   return old_ranges, new_ranges
 end
 
+--- Scan a line range for DiffChange highlights, appending matches to changed.
+---@param start_line number
+---@param end_line number
+---@param changed number[] (mutated)
+local function scan_range_for_diff_change(start_line, end_line, changed)
+  for lnum = start_line, end_line do
+    local hl_id = vim.fn.diff_hlID(lnum, 1)
+    if hl_id > 0 then
+      local name = vim.fn.synIDattr(hl_id, 'name')
+      if name == 'DiffChange' then
+        table.insert(changed, lnum)
+      end
+    end
+  end
+end
+
 --- Get line numbers that have DiffChange highlight in a window, scanning only within given ranges.
 ---@param win number
 ---@param line_count number
@@ -76,28 +92,10 @@ local function get_diff_change_lines(win, line_count, ranges)
   vim.api.nvim_win_call(win, function()
     if ranges and #ranges > 0 then
       for _, range in ipairs(ranges) do
-        local start_line = math.max(1, range[1])
-        local end_line = math.min(line_count, range[2])
-        for lnum = start_line, end_line do
-          local hl_id = vim.fn.diff_hlID(lnum, 1)
-          if hl_id > 0 then
-            local name = vim.fn.synIDattr(hl_id, 'name')
-            if name == 'DiffChange' then
-              table.insert(changed, lnum)
-            end
-          end
-        end
+        scan_range_for_diff_change(math.max(1, range[1]), math.min(line_count, range[2]), changed)
       end
     else
-      for lnum = 1, line_count do
-        local hl_id = vim.fn.diff_hlID(lnum, 1)
-        if hl_id > 0 then
-          local name = vim.fn.synIDattr(hl_id, 'name')
-          if name == 'DiffChange' then
-            table.insert(changed, lnum)
-          end
-        end
-      end
+      scan_range_for_diff_change(1, line_count, changed)
     end
   end)
   return changed

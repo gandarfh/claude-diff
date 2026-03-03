@@ -219,9 +219,10 @@ local function build_tab_content(width)
 
   local line = table.concat(parts)
 
-  -- Pad to width
-  if #line < width then
-    line = line .. string.rep(' ', width - #line)
+  -- Pad to width (use display width for correct multibyte alignment)
+  local display_width = vim.fn.strdisplaywidth(line)
+  if display_width < width then
+    line = line .. string.rep(' ', width - display_width)
   end
 
   return line, hls
@@ -289,10 +290,75 @@ local function setup_autocmds()
   })
 end
 
+--- Create a scratch buffer with content for diff viewing
+---@param name string buffer name (e.g., 'claude-diff://original/foo.lua')
+---@param lines string[]
+---@param ft string filetype
+---@return number buf
+local function create_diff_buffer(name, lines, ft)
+  local existing = vim.fn.bufnr(name)
+  if existing ~= -1 then
+    pcall(vim.api.nvim_buf_delete, existing, { force = true })
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].bufhidden = 'wipe'
+  vim.bo[buf].swapfile = false
+  vim.bo[buf].modifiable = false
+  pcall(vim.api.nvim_buf_set_name, buf, name)
+  if ft ~= '' then vim.bo[buf].filetype = ft end
+  return buf
+end
+
+--- Create a floating window for diff viewing
+---@param buf number
+---@param opts table { dim, side:'left'|'right', title, footer, focus }
+---@return number win
+local function create_float_window(buf, opts)
+  local is_left = opts.side == 'left'
+  local win = vim.api.nvim_open_win(buf, opts.focus or false, {
+    relative = 'editor',
+    width = is_left and opts.dim.half_w or opts.dim.right_w,
+    height = opts.dim.content_h,
+    row = opts.dim.start_row,
+    col = is_left and opts.dim.left_col or opts.dim.right_col,
+    style = 'minimal',
+    border = is_left and LEFT_BORDER or RIGHT_BORDER,
+    title = opts.title,
+    title_pos = 'center',
+    footer = opts.footer,
+    footer_pos = 'center',
+    focusable = true,
+    zindex = 50,
+    noautocmd = true,
+  })
+
+  vim.wo[win].number = true
+  vim.wo[win].signcolumn = 'yes:1'
+  vim.wo[win].foldcolumn = '0'
+  vim.wo[win].wrap = false
+  vim.wo[win].winhighlight = is_left and WH_LEFT or WH_RIGHT
+  return win
+end
+
+--- Enable diff mode on both windows
+---@param left_win number
+---@param right_win number
+local function setup_diff_mode(left_win, right_win)
+  vim.api.nvim_win_call(left_win, function()
+    vim.cmd('noautocmd diffthis')
+  end)
+  vim.api.nvim_win_call(right_win, function()
+    vim.cmd('noautocmd diffthis')
+  end)
+end
+
 --- Internal open implementation
 ---@param relative_path string
 local function _open_impl(relative_path)
-  -- Restore or rebuild file list
+  -- 1. Resolve file list and index
   if #M.file_list == 0 or find_file_idx(M.file_list, relative_path) == 0 then
     M.file_list = build_file_list()
   end
@@ -302,6 +368,7 @@ local function _open_impl(relative_path)
     M.file_idx = 1
   end
 
+  -- 2. Get content and metadata
   local old_lines, new_lines, _ = diff.get_file_lines(relative_path)
   M.current_file = relative_path
 
@@ -312,144 +379,50 @@ local function _open_impl(relative_path)
   local ft = vim.filetype.match({ filename = relative_path }) or ''
   local dim = calc_dimensions()
 
-  -- Wipe any stale buffers with the same name
-  local left_name = 'claude-diff://original/' .. relative_path
-  local right_name = 'claude-diff://modified/' .. relative_path
-  for _, name in ipairs({ left_name, right_name }) do
-    local existing = vim.fn.bufnr(name)
-    if existing ~= -1 then
-      pcall(vim.api.nvim_buf_delete, existing, { force = true })
-    end
-  end
+  -- 3. Create buffers
+  M.left_buf = create_diff_buffer('claude-diff://original/' .. relative_path, old_lines, ft)
+  M.right_buf = create_diff_buffer('claude-diff://modified/' .. relative_path, new_lines, ft)
 
-  -- Create original (left) buffer
-  M.left_buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(M.left_buf, 0, -1, false, old_lines)
-  vim.bo[M.left_buf].buftype = 'nofile'
-  vim.bo[M.left_buf].bufhidden = 'wipe'
-  vim.bo[M.left_buf].swapfile = false
-  vim.bo[M.left_buf].modifiable = false
-  pcall(vim.api.nvim_buf_set_name, M.left_buf, left_name)
-  if ft ~= '' then vim.bo[M.left_buf].filetype = ft end
-
-  -- Create modified (right) buffer
-  M.right_buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(M.right_buf, 0, -1, false, new_lines)
-  vim.bo[M.right_buf].buftype = 'nofile'
-  vim.bo[M.right_buf].bufhidden = 'wipe'
-  vim.bo[M.right_buf].swapfile = false
-  vim.bo[M.right_buf].modifiable = false
-  pcall(vim.api.nvim_buf_set_name, M.right_buf, right_name)
-  if ft ~= '' then vim.bo[M.right_buf].filetype = ft end
-
+  -- 4. Create windows
   local hunk_info = #M.hunks > 0
     and (' ' .. #M.hunks .. (#M.hunks == 1 and ' hunk' or ' hunks'))
     or ''
 
-  -- Left floating window (original) — noautocmd prevents user autocmds from interfering
-  M.left_win = vim.api.nvim_open_win(M.left_buf, false, {
-    relative = 'editor',
-    width = dim.half_w,
-    height = dim.content_h,
-    row = dim.start_row,
-    col = dim.left_col,
-    style = 'minimal',
-    border = LEFT_BORDER,
+  M.left_win = create_float_window(M.left_buf, {
+    dim = dim,
+    side = 'left',
     title = { { ' Original ', 'ClaudeDiffWinbarOriginal' } },
-    title_pos = 'center',
     footer = { { ' ' .. relative_path .. ' ', 'ClaudeDiffHelp' } },
-    footer_pos = 'center',
-    focusable = true,
-    zindex = 50,
-    noautocmd = true,
   })
 
-  vim.wo[M.left_win].number = true
-  vim.wo[M.left_win].signcolumn = 'yes:1'
-  vim.wo[M.left_win].foldcolumn = '0'
-  vim.wo[M.left_win].wrap = false
-  vim.wo[M.left_win].winhighlight = WH_LEFT
-
-  -- Right floating window (modified) — noautocmd prevents user autocmds from interfering
-  M.right_win = vim.api.nvim_open_win(M.right_buf, true, {
-    relative = 'editor',
-    width = dim.right_w,
-    height = dim.content_h,
-    row = dim.start_row,
-    col = dim.right_col,
-    style = 'minimal',
-    border = RIGHT_BORDER,
+  M.right_win = create_float_window(M.right_buf, {
+    dim = dim,
+    side = 'right',
+    focus = true,
     title = { { ' Modified' .. hunk_info .. ' ', 'ClaudeDiffWinbarModified' } },
-    title_pos = 'center',
     footer = { { ' Tab/S-Tab file  C-n/C-p hunk  a/x hunk  A/X file  q close ', 'ClaudeDiffHelp' } },
-    footer_pos = 'center',
-    focusable = true,
-    zindex = 50,
-    noautocmd = true,
   })
 
-  vim.wo[M.right_win].number = true
-  vim.wo[M.right_win].signcolumn = 'yes:1'
-  vim.wo[M.right_win].foldcolumn = '0'
-  vim.wo[M.right_win].wrap = false
-  vim.wo[M.right_win].winhighlight = WH_RIGHT
-
-  -- Create tab bar above the panes (after panes so we know positions)
+  -- 5. Tab bar, diff mode, inline highlights, keymaps, autocmds
   if #M.file_list > 1 then
     create_tab_bar(dim)
   end
 
-  -- Lock buffers to their windows
-  for _, win in ipairs({ M.left_win, M.right_win }) do
-    pcall(function() vim.wo[win].winfixbuf = true end)
-  end
+  pcall(function() vim.wo[M.left_win].winfixbuf = true end)
+  pcall(function() vim.wo[M.right_win].winfixbuf = true end)
 
-  -- Enable diff mode on both — use noautocmd to prevent user autocmds from firing
-  -- during the temporary window switches
-  vim.api.nvim_win_call(M.left_win, function()
-    vim.cmd('noautocmd diffthis')
-  end)
-  vim.api.nvim_win_call(M.right_win, function()
-    vim.cmd('noautocmd diffthis')
-  end)
-
-  -- Apply character-level inline diff highlights
+  setup_diff_mode(M.left_win, M.right_win)
   require('claude-diff.ui.inline_diff').apply(M.left_buf, M.right_buf, M.left_win, M.right_win, old_lines, new_lines, M.hunks)
 
-  -- Setup keymaps on both buffers
   M.setup_keymaps(M.left_buf)
   M.setup_keymaps(M.right_buf)
-
-  -- Setup autocmds for viewer lifecycle
   setup_autocmds()
-
-  -- Place initial hunk signs (no active hunk yet)
   M.update_signs(0)
 
-  -- Focus modified side and jump to first hunk
+  -- 6. Focus and jump to first hunk
   vim.api.nvim_set_current_win(M.right_win)
   if #M.hunks > 0 then
     M.goto_hunk(1)
-  end
-end
-
---- Open diff view as a floating modal
----@param relative_path string
-function M.open(relative_path)
-  -- Save file list before closing (close resets it)
-  local saved_file_list = M.file_list
-
-  M.close()
-
-  -- Restore saved file list
-  if #saved_file_list > 0 then
-    M.file_list = saved_file_list
-  end
-
-  local ok, err = pcall(_open_impl, relative_path)
-  if not ok then
-    M.close()
-    vim.notify('claude-diff viewer error: ' .. tostring(err), vim.log.levels.ERROR)
   end
 end
 
@@ -479,29 +452,22 @@ local function safe_diffoff(win)
   end)
 end
 
---- Close the viewer
-function M.close()
-  -- Clear autocmds first to prevent WinClosed from re-triggering close
+--- Close windows and buffers without resetting navigation state (file_list, file_idx)
+local function close_windows()
   vim.api.nvim_clear_autocmds({ group = augroup })
-
-  -- Clear inline diff highlights before closing
   require('claude-diff.ui.inline_diff').clear(M.left_buf, M.right_buf)
 
-  -- Diffoff on each diff window (explicit calls, no ipairs with nil holes)
   safe_diffoff(M.left_win)
   safe_diffoff(M.right_win)
 
-  -- Close all windows (explicit calls, no ipairs with nil holes)
   safe_close_win(M.tab_win)
   safe_close_win(M.left_win)
   safe_close_win(M.right_win)
 
-  -- Force-delete buffers
   safe_delete_buf(M.tab_buf)
   safe_delete_buf(M.left_buf)
   safe_delete_buf(M.right_buf)
 
-  -- Reset all state
   M.tab_buf = nil
   M.tab_win = nil
   M.left_buf = nil
@@ -511,8 +477,6 @@ function M.close()
   M.current_file = nil
   M.hunks = {}
   M.current_hunk_idx = 0
-  M.file_list = {}
-  M.file_idx = 0
 
   -- Safety net: if we're still in a floating window after cleanup, escape to a normal window
   local cur_win = vim.api.nvim_get_current_win()
@@ -520,7 +484,6 @@ function M.close()
   if ok_cfg and cur_cfg.relative and cur_cfg.relative ~= '' then
     pcall(vim.api.nvim_win_close, cur_win, true)
 
-    -- If still floating, find any normal window
     cur_win = vim.api.nvim_get_current_win()
     ok_cfg, cur_cfg = pcall(vim.api.nvim_win_get_config, cur_win)
     if ok_cfg and cur_cfg.relative and cur_cfg.relative ~= '' then
@@ -533,6 +496,31 @@ function M.close()
       end
     end
   end
+end
+
+--- Reset all navigation state
+local function reset_state()
+  M.file_list = {}
+  M.file_idx = 0
+end
+
+--- Open diff view as a floating modal
+---@param relative_path string
+function M.open(relative_path)
+  close_windows()
+
+  local ok, err = pcall(_open_impl, relative_path)
+  if not ok then
+    close_windows()
+    reset_state()
+    vim.notify('claude-diff viewer error: ' .. tostring(err), vim.log.levels.ERROR)
+  end
+end
+
+--- Close the viewer completely
+function M.close()
+  close_windows()
+  reset_state()
 end
 
 --- Navigate to a specific hunk
@@ -585,67 +573,55 @@ function M.refresh()
 end
 
 
---- Rebuild file list from pending, keeping current file for preview
----@return string[] updated file list
-local function rebuild_file_list_for_nav()
-  local pending = build_file_list()
-  -- If current file is not in pending (already approved), that's fine —
-  -- we just navigate to pending files only
-  return pending
-end
-
---- Navigate to the next pending file after approve/reject.
---- Goes to next file, or previous if at end, or closes if none left.
-function M.navigate_after_action()
-  local files = rebuild_file_list_for_nav()
+--- Navigate to a file in the pending list by direction.
+---@param target 'next'|'prev'|'current'
+local function navigate_to(target)
+  local files = build_file_list()
   if #files == 0 then
     M.close()
     return
   end
 
-  -- Try to stay at same position or go to previous if we were at the end
-  local target_idx = math.min(M.file_idx, #files)
+  local cur_idx = find_file_idx(files, M.current_file)
+  local target_idx
+
+  if target == 'next' then
+    if cur_idx > 0 and cur_idx < #files then
+      target_idx = cur_idx + 1
+    elseif cur_idx == 0 then
+      target_idx = math.min(M.file_idx, #files)
+    else
+      return -- already at end
+    end
+  elseif target == 'prev' then
+    if cur_idx > 1 then
+      target_idx = cur_idx - 1
+    elseif cur_idx == 0 then
+      target_idx = math.max(1, math.min(M.file_idx - 1, #files))
+    else
+      return -- already at start
+    end
+  else -- 'current' (used by navigate_after_action)
+    target_idx = math.min(M.file_idx, #files)
+  end
+
   M.file_list = files
   M.open(files[target_idx])
 end
 
+--- Navigate to the next pending file after approve/reject.
+function M.navigate_after_action()
+  navigate_to('current')
+end
+
 --- Navigate to the next file in the list
 function M.next_file()
-  -- Rebuild list from pending to skip already-approved files
-  local files = rebuild_file_list_for_nav()
-  if #files == 0 then return end
-
-  -- Find where current file sits relative to pending list
-  local cur_idx = find_file_idx(files, M.current_file)
-  if cur_idx > 0 and cur_idx < #files then
-    -- Current file is in list, go to next
-    M.file_list = files
-    M.open(files[cur_idx + 1])
-  elseif cur_idx == 0 then
-    -- Current file was approved (not in pending), find next by position
-    local target_idx = math.min(M.file_idx, #files)
-    M.file_list = files
-    M.open(files[target_idx])
-  end
+  navigate_to('next')
 end
 
 --- Navigate to the previous file in the list
 function M.prev_file()
-  -- Rebuild list from pending to skip already-approved files
-  local files = rebuild_file_list_for_nav()
-  if #files == 0 then return end
-
-  -- Find where current file sits relative to pending list
-  local cur_idx = find_file_idx(files, M.current_file)
-  if cur_idx > 1 then
-    M.file_list = files
-    M.open(files[cur_idx - 1])
-  elseif cur_idx == 0 then
-    -- Current file was approved, find prev by position
-    local target_idx = math.max(1, math.min(M.file_idx - 1, #files))
-    M.file_list = files
-    M.open(files[target_idx])
-  end
+  navigate_to('prev')
 end
 
 --- Switch focus to the other pane

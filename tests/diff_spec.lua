@@ -317,6 +317,22 @@ describe('diff', function()
       end)
     end)
 
+    it('returns false for individual hunk approve on new file', function()
+      helpers.with_cwd(test_dir, function()
+        helpers.setup_project({
+          dir = test_dir,
+          files = { ['new.lua'] = 'line1\nline2\n' },
+          snapshots = {},
+          pending = { { file = 'new.lua', is_new = true } },
+        })
+        local snap_dir = test_dir .. '/.claude-diff/snapshots'
+        vim.fn.writefile({ '__CLAUDE_DIFF_NEW_FILE__' }, snap_dir .. '/new.lua')
+
+        local ok = diff.approve_hunk_in_file('new.lua', 1)
+        assert.is_false(ok)
+      end)
+    end)
+
     it('keeps snapshot when multiple hunks and only one approved', function()
       helpers.with_cwd(test_dir, function()
         helpers.setup_project({

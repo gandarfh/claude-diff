@@ -21,17 +21,62 @@ describe('store', function()
   end)
 
   describe('encode_path / decode_path', function()
-    it('encodes slashes to double underscores', function()
-      assert.equals('src__foo__bar.ts', store.encode_path('src/foo/bar.ts'))
+    it('encodes slashes with URL-style encoding', function()
+      assert.equals('src%2Ffoo%2Fbar.ts', store.encode_path('src/foo/bar.ts'))
     end)
 
-    it('decodes double underscores back to slashes', function()
-      assert.equals('src/foo/bar.ts', store.decode_path('src__foo__bar.ts'))
+    it('decodes URL-encoded paths back to slashes', function()
+      assert.equals('src/foo/bar.ts', store.decode_path('src%2Ffoo%2Fbar.ts'))
     end)
 
     it('roundtrips correctly', function()
       local path = 'lua/claude-diff/ui/viewer.lua'
       assert.equals(path, store.decode_path(store.encode_path(path)))
+    end)
+
+    it('handles filenames with double underscores without collision', function()
+      local path_with_underscores = 'src/my__module.lua'
+      local path_with_slashes = 'src/my/module.lua'
+      local encoded1 = store.encode_path(path_with_underscores)
+      local encoded2 = store.encode_path(path_with_slashes)
+      assert.are_not.equal(encoded1, encoded2)
+      assert.equals(path_with_underscores, store.decode_path(encoded1))
+      assert.equals(path_with_slashes, store.decode_path(encoded2))
+    end)
+
+    it('handles paths with percent signs', function()
+      local path = 'src/100%done.lua'
+      assert.equals(path, store.decode_path(store.encode_path(path)))
+    end)
+  end)
+
+  describe('abs_path', function()
+    it('builds absolute path from relative', function()
+      helpers.with_cwd(test_dir, function()
+        local result = store.abs_path('foo/bar.lua')
+        -- Use getcwd() to account for macOS symlink resolution (/var -> /private/var)
+        assert.equals(vim.fn.getcwd() .. '/foo/bar.lua', result)
+      end)
+    end)
+  end)
+
+  describe('path validation', function()
+    it('rejects absolute paths in write_file', function()
+      assert.has_error(function()
+        store.write_file('/etc/passwd', 'bad')
+      end)
+    end)
+
+    it('rejects path traversal in delete_file', function()
+      assert.has_error(function()
+        store.delete_file('../../etc/passwd')
+      end)
+    end)
+
+    it('rejects path traversal in update_snapshot', function()
+      assert.has_error(function()
+        store.update_snapshot('../escape.lua', 'bad')
+      end)
     end)
   end)
 

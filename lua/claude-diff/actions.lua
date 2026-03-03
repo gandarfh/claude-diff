@@ -3,6 +3,18 @@ local diff = require("claude-diff.diff")
 
 local M = {}
 
+--- Schedule a viewer action if the viewer is showing the given file
+---@param relative_path string
+---@param fn_name string method name on viewer module ('navigate_after_action' | 'refresh')
+local function schedule_viewer_action(relative_path, fn_name)
+	local viewer = require("claude-diff.ui.viewer")
+	if viewer.current_file == relative_path then
+		vim.schedule(function()
+			viewer[fn_name]()
+		end)
+	end
+end
+
 --- Open diff view for a file
 ---@param relative_path string
 function M.open_diff(relative_path)
@@ -20,13 +32,7 @@ function M.approve_file(relative_path)
 
 	M._refresh_ui(relative_path)
 
-	-- Defer navigation so the keymap callback finishes before we destroy/recreate buffers
-	local viewer = require("claude-diff.ui.viewer")
-	if viewer.current_file == relative_path then
-		vim.schedule(function()
-			viewer.navigate_after_action()
-		end)
-	end
+	schedule_viewer_action(relative_path, "navigate_after_action")
 end
 
 --- Reject a file: revert to original snapshot
@@ -48,12 +54,7 @@ function M.reject_file(relative_path)
 
 	M._refresh_ui(relative_path)
 
-	local viewer = require("claude-diff.ui.viewer")
-	if viewer.current_file == relative_path then
-		vim.schedule(function()
-			viewer.navigate_after_action()
-		end)
-	end
+	schedule_viewer_action(relative_path, "navigate_after_action")
 end
 
 --- Approve all pending files
@@ -130,13 +131,7 @@ function M.approve_hunk(relative_path, hunk_index)
 
 		M._refresh_ui(relative_path)
 
-		-- Defer refresh so the keymap callback finishes before we destroy/recreate buffers
-		local viewer = require("claude-diff.ui.viewer")
-		if viewer.current_file == relative_path then
-			vim.schedule(function()
-				viewer.refresh()
-			end)
-		end
+		schedule_viewer_action(relative_path, "refresh")
 	else
 		vim.notify("Failed to approve hunk", vim.log.levels.ERROR, { title = "claude-diff" })
 	end
@@ -167,12 +162,7 @@ function M.reject_hunk(relative_path, hunk_index)
 
 		M._refresh_ui(relative_path)
 
-		local viewer = require("claude-diff.ui.viewer")
-		if viewer.current_file == relative_path then
-			vim.schedule(function()
-				viewer.refresh()
-			end)
-		end
+		schedule_viewer_action(relative_path, "refresh")
 	else
 		vim.notify("Failed to reject hunk", vim.log.levels.ERROR, { title = "claude-diff" })
 	end
@@ -181,8 +171,7 @@ end
 --- Reload a buffer if it's open in Neovim
 ---@param relative_path string
 function M._reload_buffer(relative_path)
-	local cwd = vim.fn.getcwd()
-	local abs_path = cwd .. "/" .. relative_path
+	local abs_path = store.abs_path(relative_path)
 
 	-- Find buffer by path
 	for _, buf in ipairs(vim.api.nvim_list_bufs()) do

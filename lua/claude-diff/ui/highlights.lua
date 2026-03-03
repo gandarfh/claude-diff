@@ -20,26 +20,28 @@ local function apply()
   hl(0, 'ClaudeDiffWinbarOriginal', { link = 'DiagnosticError' })
   hl(0, 'ClaudeDiffWinbarModified', { link = 'DiagnosticOk' })
 
+  local is_dark = vim.o.background ~= 'light'
+
   -- Diff backgrounds (only bg, no fg change)
-  hl(0, 'ClaudeDiffAdd', { bg = '#1e3a28' })
-  hl(0, 'ClaudeDiffDelete', { bg = '#3a1e22' })
+  hl(0, 'ClaudeDiffAdd', { bg = is_dark and '#1e3a28' or '#d4edda' })
+  hl(0, 'ClaudeDiffDelete', { bg = is_dark and '#3a1e22' or '#f8d7da' })
   hl(0, 'ClaudeDiffChange', { bg = 'NONE' })
   hl(0, 'ClaudeDiffText', { bg = 'NONE' })
 
   -- DiffChange per-side: dim background for the whole changed line
-  hl(0, 'ClaudeDiffChangeDel', { bg = '#2a1a1e' })  -- dim red for left (original)
-  hl(0, 'ClaudeDiffChangeAdd', { bg = '#1a2a20' })  -- dim green for right (modified)
+  hl(0, 'ClaudeDiffChangeDel', { bg = is_dark and '#2a1a1e' or '#fce4ec' })
+  hl(0, 'ClaudeDiffChangeAdd', { bg = is_dark and '#1a2a20' or '#e8f5e9' })
 
   -- Character-level inline diff (bright bg for the actual changed characters)
-  hl(0, 'ClaudeDiffDeleteText', { bg = '#6e3040' })  -- bright red
-  hl(0, 'ClaudeDiffAddText', { bg = '#2a6e3e' })     -- bright green
+  hl(0, 'ClaudeDiffDeleteText', { bg = is_dark and '#6e3040' or '#e57373' })
+  hl(0, 'ClaudeDiffAddText', { bg = is_dark and '#2a6e3e' or '#66bb6a' })
 
   -- Hunk signs in sign column
-  hl(0, 'ClaudeDiffHunkActive', { fg = '#61afef' })
-  hl(0, 'ClaudeDiffHunkInactive', { fg = '#3e4452' })
+  hl(0, 'ClaudeDiffHunkActive', { fg = is_dark and '#61afef' or '#1976d2' })
+  hl(0, 'ClaudeDiffHunkInactive', { fg = is_dark and '#3e4452' or '#bdbdbd' })
 
   -- File tabs in viewer
-  hl(0, 'ClaudeDiffTabActive', { fg = '#61afef', bold = true })
+  hl(0, 'ClaudeDiffTabActive', { fg = is_dark and '#61afef' or '#1976d2', bold = true })
   hl(0, 'ClaudeDiffTabInactive', { link = 'Comment' })
 end
 

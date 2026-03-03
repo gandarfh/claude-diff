@@ -50,7 +50,7 @@ function M.setup_project(opts)
   local snap_dir = dir .. '/.claude-diff/snapshots'
   vim.fn.mkdir(snap_dir, 'p')
   for rel_path, content in pairs(opts.snapshots or {}) do
-    local encoded = rel_path:gsub('/', '__')
+    local encoded = rel_path:gsub('%%', '%%25'):gsub('/', '%%2F')
     M.write_file(snap_dir .. '/' .. encoded, content)
   end
 
