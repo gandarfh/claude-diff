@@ -17,9 +17,23 @@ end
 function M.close()
   local viewer = require('claude-diff.ui.viewer')
   local panel = require('claude-diff.ui.panel')
+  local plan = require('claude-diff.ui.plan')
 
   viewer.close()
   panel.close()
+  plan.close()
+end
+
+--- Open the plan preview modal
+function M.open_plan()
+  local plan = require('claude-diff.ui.plan')
+  plan.open()
+end
+
+--- Close the plan preview modal
+function M.close_plan()
+  local plan = require('claude-diff.ui.plan')
+  plan.close()
 end
 
 --- Toggle the UI open/closed

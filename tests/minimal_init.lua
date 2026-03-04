@@ -24,6 +24,7 @@ require('claude-diff.ui.highlights')
 require('claude-diff.ui.panel')
 require('claude-diff.ui.viewer')
 require('claude-diff.ui.inline_diff')
+require('claude-diff.ui.plan')
 require('claude-diff.actions')
 require('claude-diff.init')
 

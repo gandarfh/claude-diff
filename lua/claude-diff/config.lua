@@ -22,6 +22,7 @@ M.defaults = {
     prev_hunk = '<C-p>',
     approve_hunk = 'a',
     reject_hunk = 'x',
+    open_plan = '<leader>cp',
   },
 }
 

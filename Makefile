@@ -1,7 +1,7 @@
 TESTS_DIR := tests
 MINIMAL_INIT := tests/minimal_init.lua
 
-.PHONY: test test-diff test-store test-viewer test-panel test-actions test-init test-inline-diff test-scalability test-highlights
+.PHONY: test test-diff test-store test-viewer test-panel test-actions test-init test-inline-diff test-scalability test-highlights test-plan
 
 # Run all tests
 test:
@@ -52,3 +52,8 @@ test-scalability:
 test-highlights:
 	nvim --headless -u $(MINIMAL_INIT) \
 		-c "PlenaryBustedFile $(TESTS_DIR)/highlights_spec.lua"
+
+# Run only plan tests
+test-plan:
+	nvim --headless -u $(MINIMAL_INIT) \
+		-c "PlenaryBustedFile $(TESTS_DIR)/plan_spec.lua"

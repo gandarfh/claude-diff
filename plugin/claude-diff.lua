@@ -33,3 +33,15 @@ end, { desc = 'Approve all pending changes' })
 vim.api.nvim_create_user_command('ClaudeDiffRejectAll', function()
   require('claude-diff.actions').reject_all()
 end, { desc = 'Reject all pending changes' })
+
+vim.api.nvim_create_user_command('ClaudeDiffPlan', function()
+  require('claude-diff').open_plan()
+end, { desc = 'Open Claude plan preview' })
+
+vim.api.nvim_create_user_command('ClaudeDiffPlanClose', function()
+  require('claude-diff').close_plan()
+end, { desc = 'Close Claude plan preview' })
+
+vim.api.nvim_create_user_command('ClaudeDiffInstallHook', function()
+  require('claude-diff.ui.plan').install_hook()
+end, { desc = 'Install Claude Code hook for plan detection' })
