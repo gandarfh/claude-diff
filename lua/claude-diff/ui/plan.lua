@@ -146,34 +146,4 @@ function M.close()
   end
 end
 
---- Install the plan-watcher hook into .claude/hooks/
-function M.install_hook()
-  local hooks_dir = vim.fn.getcwd() .. '/.claude/hooks'
-  vim.fn.mkdir(hooks_dir, 'p')
-
-  local hook_path = hooks_dir .. '/plan-watcher.sh'
-  if vim.fn.filereadable(hook_path) == 1 then
-    vim.notify('claude-diff: hook already exists at ' .. hook_path, vim.log.levels.INFO)
-    return
-  end
-
-  local plugin_dir = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':h:h:h:h')
-  local source = plugin_dir .. '/hooks/plan-watcher.sh'
-
-  if vim.fn.filereadable(source) ~= 1 then
-    vim.notify('claude-diff: cannot find hook template at ' .. source, vim.log.levels.ERROR)
-    return
-  end
-
-  vim.fn.writefile(vim.fn.readfile(source), hook_path)
-  vim.fn.setfperm(hook_path, 'rwxr-xr-x')
-
-  vim.notify(
-    'claude-diff: hook installed at ' .. hook_path
-      .. '\nAdd to .claude/settings.json:\n'
-      .. '  "hooks": { "PostToolUse": [{ "matcher": "Write", "hooks": [{ "type": "command", "command": ".claude/hooks/plan-watcher.sh" }] }] }',
-    vim.log.levels.INFO
-  )
-end
-
 return M

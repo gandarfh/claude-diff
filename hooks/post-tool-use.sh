@@ -20,6 +20,12 @@ if [[ "$FILE_PATH" != /* ]]; then
   FILE_PATH="$CWD/$FILE_PATH"
 fi
 
+# Track plan file writes (~/.claude/plans/*.md)
+if [[ "$FILE_PATH" =~ \.claude/plans/.*\.md$ ]] && [[ -n "$CWD" ]]; then
+  mkdir -p "$CWD/.claude-diff"
+  echo "$FILE_PATH" > "$CWD/.claude-diff/current-plan"
+fi
+
 STORAGE_DIR="$CWD/.claude-diff"
 PENDING_FILE="$STORAGE_DIR/pending.json"
 SNAPSHOTS_DIR="$STORAGE_DIR/snapshots"

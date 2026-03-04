@@ -308,7 +308,10 @@ local function create_diff_buffer(name, lines, ft)
   vim.bo[buf].swapfile = false
   vim.bo[buf].modifiable = false
   pcall(vim.api.nvim_buf_set_name, buf, name)
-  if ft ~= '' then vim.bo[buf].filetype = ft end
+  if ft ~= '' then
+    vim.bo[buf].filetype = ft
+    pcall(vim.treesitter.start, buf, ft)
+  end
   return buf
 end
 
